@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>轻功 - 27SS 企划极限看板 V10</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <style>
+        :root { --primary-color: #1890ff; --success-color: #52c41a; --danger-color: #ff4d4f; --bg: #f0f2f5; }
+        body { font-family: -apple-system, system-ui, sans-serif; margin: 0; display: flex; height: 100vh; background: var(--bg); overflow: hidden; }
+        #sidebar { width: 560px; background: white; box-shadow: 2px 0 10px rgba(0,0,0,0.05); padding: 20px; display: flex; flex-direction: column; overflow-y: auto; }
+        .section { background: #fafafa; padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #eee; }
+        h2 { font-size: 0.95rem; margin-top: 0; border-left: 4px solid var(--primary-color); padding-left: 10px; margin-bottom: 10px; }
+        .row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 8px; }
+        .row span { width: 80px; flex-shrink: 0; color: #666; }
+        input, select { flex: 1; padding: 6px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 13px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
+        th, td { border-bottom: 1px solid #f0f0f0; padding: 8px 2px; text-align: left; }
+        .btn { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; color: white; font-size: 12px; width: 100%; margin-bottom: 8px; }
+        .btn-add { background: var(--primary-color); }
+        .btn-save { background: var(--success-color); }
+        #main-canvas { flex: 1; padding: 25px; position: relative; }
+        #chart-container { width: 100%; height: 100%; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
+        .status-tag { position: absolute; bottom: 35px; right: 40px; font-size: 11px; color: #1890ff; font-weight: bold; background: #e6f7ff; padding: 5px 12px; border-radius: 20px; border: 1px solid #91d5ff; }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <div class="section">
+        <h2>📂 企划档案库</h2>
+        <div class="row"><span>项目名称:</span><input type="text" id="projName" placeholder="27SS企划案例"></div>
+        <div style="display:flex; gap:8px;">
+            <button class="btn btn-save" onclick="saveToLibrary()">💾 保存当前修改</button>
+            <select id="projList" onchange="loadFromLibrary(this.value)"><option value="">-- 读取历史 --</option></select>
+            <button class="btn" style="width:auto; background:#ff4d4f" onclick="deleteFromLibrary()">🗑️</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>⚙️ 画布全局设置</h2>
+        <div class="row"><span>主标题:</span><input type="text" id="mainTitle" value="27SS 产品线规划看板" oninput="autoUpdate()"></div>
+        <div class="row"><span>X 轴名称:</span><input type="text" id="xAxisName" value="跑步定位" oninput="autoUpdate()"></div>
+        <div class="row"><span>Y 轴名称:</span><input type="text" id="yAxisName" value="价格带 (元)" oninput="autoUpdate()"></div>
+    </div>
+
+    <h2 style="margin-left:10px;">📦 SKU 录入明细</h2>
+    <table id="productTable">
+        <thead>
+            <tr>
+                <th width="85">产品名称</th>
+                <th width="55">价格</th>
+                <th width="85">定位场景</th>
+                <th width="120">色系</th>
+                <th width="35">图</th>
+                <th width="25"></th>
+            </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+    <button class="btn btn-add" style="margin-top:10px;" onclick="addRow()">+ 新增 SKU</button>
+    <button class="btn" style="background:#444" onclick="exportChartImage()">📸 导出高清 PPT 配图</button>
+</div>
+
+<div id="main-canvas">
+    <div id="chart-container"></div>
+    <div class="status-tag" id="statusBar">极限视口裁剪 已锁定</div>
+</div>
+
+<script>
+    let myChart;
+    const POS_OPTIONS = ['入门(5K)', '训练(10K)', '专业(21K)', '竞技(42K)'];
+    let currentData = { projectName: "", mainTitle: "27SS 产品线规划看板", xAxisName: "跑步定位", yAxisName: "价格带 (元)", products: [] };
+
+    window.onload = () => {
+        myChart = echarts.init(document.getElementById('chart-container'));
+        refreshLibraryList();
+        const lastAuto = localStorage.getItem('qg_v10_auto');
+        if(lastAuto) { currentData = JSON.parse(lastAuto); syncUIToData(); } else { addRow(); }
+        renderChart();
+    };
+
+    function autoUpdate() {
+        currentData.projectName = document.getElementById('projName').value;
+        currentData.mainTitle = document.getElementById('mainTitle').value;
+        currentData.xAxisName = document.getElementById('xAxisName').value;
+        currentData.yAxisName = document.getElementById('yAxisName').value;
+        localStorage.setItem('qg_v10_auto', JSON.stringify(currentData));
+        renderChart();
+    }
+
+    function syncUIToData() {
+        document.getElementById('projName').value = currentData.projectName;
+        document.getElementById('mainTitle').value = currentData.mainTitle;
+        document.getElementById('xAxisName').value = currentData.xAxisName;
+        document.getElementById('yAxisName').value = currentData.yAxisName;
+        initTable();
+    }
+
+    // --- 核心引擎：硬性裁剪 + 深度避让 ---
+    function renderChart() {
+        if (!myChart) return;
+
+        const prices = currentData.products.map(p => p.price);
+        
+        // 1. 强制裁剪计算（核心修复）
+        let yMin = 0;
+        let yMax = 500;
+        if (prices.length > 0) {
+            const realMin = Math.min(...prices);
+            const realMax = Math.max(...prices);
+            
+            // 底部：强制从 (最低价 - 50) 起跳，不给 ECharts 回退到 0 的机会
+            yMin = realMin > 100 ? Math.floor(realMin - 50) : 0;
+            // 顶部：预留 150 元的高度，确保卡片（约 100px）绝不溢出
+            yMax = Math.ceil(realMax + 150);
+            
+            // 极窄区间保护
+            if (yMax - yMin < 200) yMax = yMin + 300;
+        }
+
+        const laneCounters = {};
+        const collisionThreshold = 60; // 60元内视为重叠冲突
+
+        // 排序确保偏移稳定
+        const sortedProducts = [...currentData.products].sort((a, b) => b.price - a.price);
+
+        const seriesData = sortedProducts.map(p => {
+            const xIndex = POS_OPTIONS.indexOf(p.pos);
+            if (!laneCounters[xIndex]) laneCounters[xIndex] = [];
+            
+            let laneIndex = 0;
+            while (laneCounters[xIndex].some(ex => 
+                Math.abs(ex.price - p.price) < collisionThreshold && ex.lane === laneIndex
+            )) {
+                laneIndex++;
+            }
+            laneCounters[xIndex].push({ price: p.price, lane: laneIndex });
+
+            // 避让步长增加到 130 像素
+            let offsetX = 0;
+            if (laneIndex > 0) {
+                offsetX = (laneIndex % 2 === 1 ? 1 : -1) * Math.ceil(laneIndex / 2) * 130;
+            }
+
+            let rich = {
+                img: { width: 75, height: 75, backgroundColor: { image: p.img || '' }, align: 'center', borderRadius: 4, margin: [0, 0, 5, 0] },
+                noImg: { width: 75, height: 75, backgroundColor: '#f0f0f0', align: 'center', borderRadius: 4, margin: [0, 0, 5, 0], color: '#aaa', fontSize: 10 },
+                t: { color: '#333', fontWeight: 'bold', fontSize: 12, lineHeight: 18, align: 'center' },
+                p: { color: '#888', fontSize: 10, lineHeight: 14, align: 'center' }
+            };
+
+            let colorTags = '';
+            p.selectedColors.forEach((c, i) => {
+                colorTags += `{c${i}| }`;
+                rich[`c${i}`] = { width: 6, height: 6, borderRadius: 3, backgroundColor: c, margin: [2, 1, 0, 1] };
+            });
+
+            return {
+                value: [xIndex, p.price],
+                symbolSize: 0,
+                label: {
+                    show: true,
+                    position: 'top', 
+                    offset: [offsetX, 55], // 修正垂直偏移，对齐卡片中心
+                    backgroundColor: '#fff',
+                    borderColor: '#eee',
+                    borderWidth: 1,
+                    borderRadius: 10,
+                    padding: [10, 12],
+                    shadowBlur: 15,
+                    shadowColor: 'rgba(0,0,0,0.08)',
+                    formatter: `${p.img ? '{img|}' : '{noImg|NO IMAGE}'}\n{t|${p.name}}\n{p|¥${p.price}}\n${colorTags}`,
+                    rich: rich
+                }
+            };
+        });
+
+        myChart.setOption({
+            backgroundColor: '#ffffff',
+            title: { text: currentData.mainTitle, left: 'center', top: 20 },
+            // 拉宽 grid 边距，确保卡片左右弹开不撞墙
+            grid: { left: '120', right: '120', bottom: '100', top: '120', containLabel: true },
+            xAxis: { 
+                type: 'category', data: POS_OPTIONS, name: currentData.xAxisName, 
+                nameLocation: 'middle', nameGap: 40, axisTick: { show: false }
+            },
+            yAxis: { 
+                type: 'value', name: currentData.yAxisName,
+                min: yMin, // 强制起点
+                max: yMax, // 强制终点
+                scale: true, // 关键
+                splitLine: { lineStyle: { type: 'dashed', color: '#f5f5f5' } } 
+            },
+            series: [{ type: 'scatter', data: seriesData, animationDuration: 400 }]
+        }, true);
+    }
+
+    // --- 后台功能 ---
+    function saveToLibrary() {
+        const name = document.getElementById('projName').value;
+        if(!name) { alert("请先输入项目名称"); return; }
+        let lib = JSON.parse(localStorage.getItem('qg_v10_lib') || '{}');
+        lib[name] = currentData;
+        localStorage.setItem('qg_v10_lib', JSON.stringify(lib));
+        refreshLibraryList(); document.getElementById('statusBar').innerText = "✅ 项目已深度保存";
+    }
+    function loadFromLibrary(name) {
+        if(!name) return;
+        let lib = JSON.parse(localStorage.getItem('qg_v10_lib') || '{}');
+        if(lib[name]) { currentData = lib[name]; syncUIToData(); renderChart(); }
+    }
+    function deleteFromLibrary() {
+        const name = document.getElementById('projList').value;
+        if(!name || !confirm("确定删除？")) return;
+        let lib = JSON.parse(localStorage.getItem('qg_v10_lib') || '{}');
+        delete lib[name]; localStorage.setItem('qg_v10_lib', JSON.stringify(lib));
+        refreshLibraryList();
+    }
+    function refreshLibraryList() {
+        const list = document.getElementById('projList');
+        const lib = JSON.parse(localStorage.getItem('qg_v10_lib') || '{}');
+        list.innerHTML = '<option value="">-- 读取历史 --</option>';
+        for(let k in lib) { const o = document.createElement('option'); o.value=k; o.innerText=k; list.appendChild(o); }
+    }
+    function initTable() {
+        const tbody = document.getElementById('tableBody'); tbody.innerHTML = '';
+        currentData.products.forEach((p, index) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><input type="text" value="${p.name}" oninput="updateProduct(${index},'name',this.value)"></td>
+                <td><input type="number" value="${p.price}" oninput="updateProduct(${index},'price',this.value)"></td>
+                <td><select onchange="updateProduct(${index},'pos',this.value)">${POS_OPTIONS.map(opt => `<option value="${opt}" ${p.pos===opt?'selected':''}>${opt}</option>`).join('')}</select></td>
+                <td><div style="display:flex;flex-wrap:wrap;gap:3px;align-items:center"><input type="color" id="p_${index}" style="width:16px;height:16px;border:none;padding:0;cursor:pointer"><button onclick="addColor(${index})" style="font-size:9px">加</button>${p.selectedColors.map((c,ci)=>`<div class="swatch" style="background:${c}" onclick="removeColor(${index},${ci})"></div>`).join('')}</div></td>
+                <td><label style="cursor:pointer;color:var(--primary-color);">${p.img?'✅':'传'}<input type="file" style="display:none" accept="image/*" onchange="handleFile(${index},this)"></label></td>
+                <td><button onclick="removeRow(${index})" style="background:none;border:none;color:red;cursor:pointer">✕</button></td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+    function updateProduct(i, f, v) { currentData.products[i][f] = f==='price'?Number(v):v; autoUpdate(); }
+    function addColor(i) { currentData.products[i].selectedColors.push(document.getElementById(`p_${i}`).value); initTable(); autoUpdate(); }
+    function removeColor(pi, ci) { currentData.products[pi].selectedColors.splice(ci,1); initTable(); autoUpdate(); }
+    function addRow() { currentData.products.push({name:'新SKU', price:350, pos:'训练(10K)', img:'', selectedColors:[]}); initTable(); autoUpdate(); }
+    function removeRow(i) { currentData.products.splice(i,1); initTable(); autoUpdate(); }
+    function handleFile(i, input) { const file = input.files[0]; if(file) { const reader = new FileReader(); reader.onload=(e)=>{currentData.products[i].img=e.target.result; initTable(); autoUpdate();}; reader.readAsDataURL(file); } }
+    function exportChartImage() { const url = myChart.getDataURL({type:'png', pixelRatio:2, backgroundColor:'#fff'}); const a = document.createElement('a'); a.href=url; a.download=`企划图_${new Date().getTime()}.png`; a.click(); }
+</script>
+</body>
+</html>
