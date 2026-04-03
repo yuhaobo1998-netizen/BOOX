@@ -2,248 +2,313 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>轻功 - 27SS 企划极限看板 V10</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <title>27SS 产品线规划看板 - 终极稳定版</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
-        :root { --primary-color: #1890ff; --success-color: #52c41a; --danger-color: #ff4d4f; --bg: #f0f2f5; }
-        body { font-family: -apple-system, system-ui, sans-serif; margin: 0; display: flex; height: 100vh; background: var(--bg); overflow: hidden; }
-        #sidebar { width: 560px; background: white; box-shadow: 2px 0 10px rgba(0,0,0,0.05); padding: 20px; display: flex; flex-direction: column; overflow-y: auto; }
-        .section { background: #fafafa; padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #eee; }
-        h2 { font-size: 0.95rem; margin-top: 0; border-left: 4px solid var(--primary-color); padding-left: 10px; margin-bottom: 10px; }
-        .row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 8px; }
-        .row span { width: 80px; flex-shrink: 0; color: #666; }
-        input, select { flex: 1; padding: 6px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 13px; }
-        table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
-        th, td { border-bottom: 1px solid #f0f0f0; padding: 8px 2px; text-align: left; }
-        .btn { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; color: white; font-size: 12px; width: 100%; margin-bottom: 8px; }
-        .btn-add { background: var(--primary-color); }
-        .btn-save { background: var(--success-color); }
-        #main-canvas { flex: 1; padding: 25px; position: relative; }
-        #chart-container { width: 100%; height: 100%; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
-        .status-tag { position: absolute; bottom: 35px; right: 40px; font-size: 11px; color: #1890ff; font-weight: bold; background: #e6f7ff; padding: 5px 12px; border-radius: 20px; border: 1px solid #91d5ff; }
+        :root { --primary-color: #007bff; --bg-gray: #f8f9fa; }
+        body { font-family: -apple-system, system-ui, sans-serif; margin: 0; display: flex; height: 100vh; background: #eee; overflow: hidden; }
+        
+        /* 侧边栏：宽度可自由拉伸 */
+        #sidebar { width: 450px; min-width: 320px; max-width: 800px; background: white; border-right: 1px solid #ddd; display: flex; flex-direction: column; overflow-y: auto; z-index: 10; position: relative; }
+        #resizer { width: 8px; cursor: col-resize; position: absolute; right: 0; top: 0; bottom: 0; z-index: 20; background: transparent; transition: 0.2s; }
+        #resizer:hover { background: rgba(0,123,255,0.4); }
+
+        .section { padding: 15px; border-bottom: 1px solid #eee; }
+        .section-title { font-weight: bold; margin-bottom: 12px; font-size: 14px; color: #333; display: flex; justify-content: space-between; align-items: center; }
+
+        .input-group { margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+        .input-group label { width: 80px; font-size: 12px; color: #666; flex-shrink: 0; }
+        input, select { flex: 1; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; }
+        
+        /* SKU 明细条目 */
+        #sku-list { flex: 1; padding: 15px; overflow-y: auto; background: var(--bg-gray); }
+        .sku-item { background: white; padding: 12px; border-radius: 8px; margin-bottom: 12px; border: 1px solid #e0e0e0; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .sku-row-main { display: grid; grid-template-columns: 55px 1fr 70px 100px 25px; gap: 8px; align-items: center; }
+        
+        /* 颜色管理区 */
+        .color-container { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding-top: 10px; margin-top: 10px; border-top: 1px dashed #eee; }
+        .color-dot-wrapper { display: flex; align-items: center; background: #f0f2f5; padding: 2px 4px; border-radius: 4px; border: 1px solid #ddd; }
+        .color-dot-wrapper input[type="color"] { width: 20px; height: 20px; border: none; padding: 0; background: none; cursor: pointer; }
+        
+        .img-preview { width: 50px; height: 50px; background: #f0f0f0; border-radius: 4px; background-size: cover; background-position: center; cursor: pointer; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #999; }
+        .btn-del { color: #ccc; cursor: pointer; text-align: right; font-size: 20px; }
+        .btn-del:hover { color: #ff4d4f; }
+
+        /* 画布交互区 */
+        #preview-container { flex: 1; overflow: hidden; background: #cbd0d5; position: relative; cursor: grab; }
+        #chart-wrapper { background: white; box-shadow: 0 10px 40px rgba(0,0,0,0.2); position: absolute; }
+        #main-chart { width: 100%; height: 100%; }
+
+        .btn { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; }
+        .btn-add { background: var(--primary-color); color: white; width: 100%; margin-bottom: 10px; }
+        .btn-save { background: #52c41a; color: white; }
     </style>
 </head>
 <body>
 
 <div id="sidebar">
+    <div id="resizer"></div>
     <div class="section">
-        <h2>📂 企划档案库</h2>
-        <div class="row"><span>项目名称:</span><input type="text" id="projName" placeholder="27SS企划案例"></div>
-        <div style="display:flex; gap:8px;">
-            <button class="btn btn-save" onclick="saveToLibrary()">💾 保存当前修改</button>
-            <select id="projList" onchange="loadFromLibrary(this.value)"><option value="">-- 读取历史 --</option></select>
-            <button class="btn" style="width:auto; background:#ff4d4f" onclick="deleteFromLibrary()">🗑️</button>
+        <div class="section-title">📂 企划档案库</div>
+        <div class="input-group">
+            <input type="text" id="project-name" placeholder="输入项目名称...">
+            <button class="btn btn-save" onclick="saveProject()">保存</button>
+        </div>
+        <div class="input-group">
+            <select id="project-select" onchange="loadProject()"><option value="">读取历史</option></select>
+            <button class="btn" onclick="deleteProject()" style="background:#ff4d4f; color:white;">🗑</button>
         </div>
     </div>
 
     <div class="section">
-        <h2>⚙️ 画布全局设置</h2>
-        <div class="row"><span>主标题:</span><input type="text" id="mainTitle" value="27SS 产品线规划看板" oninput="autoUpdate()"></div>
-        <div class="row"><span>X 轴名称:</span><input type="text" id="xAxisName" value="跑步定位" oninput="autoUpdate()"></div>
-        <div class="row"><span>Y 轴名称:</span><input type="text" id="yAxisName" value="价格带 (元)" oninput="autoUpdate()"></div>
+        <div class="section-title">⚙️ 画布空间设置</div>
+        <div class="input-group">
+            <label>画布宽高:</label>
+            <input type="number" id="canvas-width" value="1200" oninput="resizeCanvas()">
+            <input type="number" id="canvas-height" value="800" oninput="resizeCanvas()">
+        </div>
+        <div class="input-group">
+            <label>看板标题:</label>
+            <input type="text" id="chart-title" value="27SS 产品线规划看板" oninput="updateChart()">
+        </div>
     </div>
 
-    <h2 style="margin-left:10px;">📦 SKU 录入明细</h2>
-    <table id="productTable">
-        <thead>
-            <tr>
-                <th width="85">产品名称</th>
-                <th width="55">价格</th>
-                <th width="85">定位场景</th>
-                <th width="120">色系</th>
-                <th width="35">图</th>
-                <th width="25"></th>
-            </tr>
-        </thead>
-        <tbody id="tableBody"></tbody>
-    </table>
-    <button class="btn btn-add" style="margin-top:10px;" onclick="addRow()">+ 新增 SKU</button>
-    <button class="btn" style="background:#444" onclick="exportChartImage()">📸 导出高清 PPT 配图</button>
+    <div id="sku-list"></div>
+
+    <div class="section" style="border:none">
+        <button class="btn btn-add" onclick="addSKU()">+ 新增 SKU (支持多色)</button>
+        <div style="display:flex; gap:8px;">
+            <button class="btn" onclick="exportImage()" style="flex:1; background:#333; color:white;">📷 导出高清图</button>
+            <button class="btn" onclick="resetView()" style="flex:1; background:#888; color:white;">🎯 视角回正</button>
+        </div>
+    </div>
 </div>
 
-<div id="main-canvas">
-    <div id="chart-container"></div>
-    <div class="status-tag" id="statusBar">极限视口裁剪 已锁定</div>
+<div id="preview-container">
+    <div id="chart-wrapper" style="width: 1200px; height: 800px; left: 50px; top: 50px;">
+        <div id="main-chart"></div>
+    </div>
 </div>
 
 <script>
-    let myChart;
-    const POS_OPTIONS = ['入门(5K)', '训练(10K)', '专业(21K)', '竞技(42K)'];
-    let currentData = { projectName: "", mainTitle: "27SS 产品线规划看板", xAxisName: "跑步定位", yAxisName: "价格带 (元)", products: [] };
+    let myChart = echarts.init(document.getElementById('main-chart'), null, { renderer: 'canvas', devicePixelRatio: 2 });
+    const positions = ['入门(5K)', '训练(10K)', '专业(21K)', '竞技(42K)'];
+    const placeholderImg = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgdmlld0JveD0iMCAwIDYwIDYwIj48cmVjdCB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIGZpbGw9IiNmOGY5ZmEiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIxMCIgZmlsbD0iI2NjYyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPlVQT0FEPC90ZXh0Pjwvc3ZnPg==";
 
-    window.onload = () => {
-        myChart = echarts.init(document.getElementById('chart-container'));
-        refreshLibraryList();
-        const lastAuto = localStorage.getItem('qg_v10_auto');
-        if(lastAuto) { currentData = JSON.parse(lastAuto); syncUIToData(); } else { addRow(); }
-        renderChart();
-    };
+    let skus = [
+        { name: '轻功 27SS 旗舰款', price: 399, pos: '训练(10K)', colors: ['#ff4d4f', '#007bff'], img: '' }
+    ];
 
-    function autoUpdate() {
-        currentData.projectName = document.getElementById('projName').value;
-        currentData.mainTitle = document.getElementById('mainTitle').value;
-        currentData.xAxisName = document.getElementById('xAxisName').value;
-        currentData.yAxisName = document.getElementById('yAxisName').value;
-        localStorage.setItem('qg_v10_auto', JSON.stringify(currentData));
-        renderChart();
-    }
+    // --- 稳定性：侧边栏拉伸功能 ---
+    const resizer = document.getElementById('resizer');
+    const sidebar = document.getElementById('sidebar');
+    let isResizing = false;
 
-    function syncUIToData() {
-        document.getElementById('projName').value = currentData.projectName;
-        document.getElementById('mainTitle').value = currentData.mainTitle;
-        document.getElementById('xAxisName').value = currentData.xAxisName;
-        document.getElementById('yAxisName').value = currentData.yAxisName;
-        initTable();
-    }
-
-    // --- 核心引擎：硬性裁剪 + 深度避让 ---
-    function renderChart() {
-        if (!myChart) return;
-
-        const prices = currentData.products.map(p => p.price);
-        
-        // 1. 强制裁剪计算（核心修复）
-        let yMin = 0;
-        let yMax = 500;
-        if (prices.length > 0) {
-            const realMin = Math.min(...prices);
-            const realMax = Math.max(...prices);
-            
-            // 底部：强制从 (最低价 - 50) 起跳，不给 ECharts 回退到 0 的机会
-            yMin = realMin > 100 ? Math.floor(realMin - 50) : 0;
-            // 顶部：预留 150 元的高度，确保卡片（约 100px）绝不溢出
-            yMax = Math.ceil(realMax + 150);
-            
-            // 极窄区间保护
-            if (yMax - yMin < 200) yMax = yMin + 300;
+    resizer.addEventListener('mousedown', () => { isResizing = true; document.body.style.userSelect = 'none'; });
+    document.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+        let w = e.clientX;
+        if (w > 320 && w < 800) {
+            sidebar.style.width = w + 'px';
+            myChart.resize();
         }
+    });
+    document.addEventListener('mouseup', () => { isResizing = false; document.body.style.userSelect = 'auto'; });
 
-        const laneCounters = {};
-        const collisionThreshold = 60; // 60元内视为重叠冲突
+    // --- 画布拖拽平移 ---
+    const container = document.getElementById('preview-container');
+    const wrapper = document.getElementById('chart-wrapper');
+    let isPanning = false, sx, sy, il, it;
 
-        // 排序确保偏移稳定
-        const sortedProducts = [...currentData.products].sort((a, b) => b.price - a.price);
+    container.addEventListener('mousedown', (e) => {
+        if (e.target.closest('#sidebar')) return;
+        isPanning = true; container.style.cursor = 'grabbing';
+        sx = e.clientX; sy = e.clientY;
+        il = wrapper.offsetLeft; it = wrapper.offsetTop;
+    });
+    document.addEventListener('mousemove', (e) => {
+        if (!isPanning) return;
+        wrapper.style.left = (il + e.clientX - sx) + 'px';
+        wrapper.style.top = (it + e.clientY - sy) + 'px';
+    });
+    document.addEventListener('mouseup', () => { isPanning = false; container.style.cursor = 'grab'; });
 
-        const seriesData = sortedProducts.map(p => {
-            const xIndex = POS_OPTIONS.indexOf(p.pos);
-            if (!laneCounters[xIndex]) laneCounters[xIndex] = [];
-            
-            let laneIndex = 0;
-            while (laneCounters[xIndex].some(ex => 
-                Math.abs(ex.price - p.price) < collisionThreshold && ex.lane === laneIndex
-            )) {
-                laneIndex++;
-            }
-            laneCounters[xIndex].push({ price: p.price, lane: laneIndex });
+    function resetView() { wrapper.style.left = '50px'; wrapper.style.top = '50px'; }
+    function resizeCanvas() {
+        wrapper.style.width = document.getElementById('canvas-width').value + 'px';
+        wrapper.style.height = document.getElementById('canvas-height').value + 'px';
+        myChart.resize(); updateChart();
+    }
 
-            // 避让步长增加到 130 像素
-            let offsetX = 0;
-            if (laneIndex > 0) {
-                offsetX = (laneIndex % 2 === 1 ? 1 : -1) * Math.ceil(laneIndex / 2) * 130;
-            }
+    // --- SKU 数据逻辑 ---
+    function addSKU() {
+        skus.push({ name: '新产品条目', price: 299, pos: '入门(5K)', colors: ['#333333'], img: '' });
+        renderSKUList(); updateChart();
+    }
 
-            let rich = {
-                img: { width: 75, height: 75, backgroundColor: { image: p.img || '' }, align: 'center', borderRadius: 4, margin: [0, 0, 5, 0] },
-                noImg: { width: 75, height: 75, backgroundColor: '#f0f0f0', align: 'center', borderRadius: 4, margin: [0, 0, 5, 0], color: '#aaa', fontSize: 10 },
-                t: { color: '#333', fontWeight: 'bold', fontSize: 12, lineHeight: 18, align: 'center' },
-                p: { color: '#888', fontSize: 10, lineHeight: 14, align: 'center' }
+    function handleImage(index, event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => { 
+                skus[index].img = e.target.result; 
+                renderSKUList(); 
+                updateChart(); 
             };
-
-            let colorTags = '';
-            p.selectedColors.forEach((c, i) => {
-                colorTags += `{c${i}| }`;
-                rich[`c${i}`] = { width: 6, height: 6, borderRadius: 3, backgroundColor: c, margin: [2, 1, 0, 1] };
-            });
-
-            return {
-                value: [xIndex, p.price],
-                symbolSize: 0,
-                label: {
-                    show: true,
-                    position: 'top', 
-                    offset: [offsetX, 55], // 修正垂直偏移，对齐卡片中心
-                    backgroundColor: '#fff',
-                    borderColor: '#eee',
-                    borderWidth: 1,
-                    borderRadius: 10,
-                    padding: [10, 12],
-                    shadowBlur: 15,
-                    shadowColor: 'rgba(0,0,0,0.08)',
-                    formatter: `${p.img ? '{img|}' : '{noImg|NO IMAGE}'}\n{t|${p.name}}\n{p|¥${p.price}}\n${colorTags}`,
-                    rich: rich
-                }
-            };
-        });
-
-        myChart.setOption({
-            backgroundColor: '#ffffff',
-            title: { text: currentData.mainTitle, left: 'center', top: 20 },
-            // 拉宽 grid 边距，确保卡片左右弹开不撞墙
-            grid: { left: '120', right: '120', bottom: '100', top: '120', containLabel: true },
-            xAxis: { 
-                type: 'category', data: POS_OPTIONS, name: currentData.xAxisName, 
-                nameLocation: 'middle', nameGap: 40, axisTick: { show: false }
-            },
-            yAxis: { 
-                type: 'value', name: currentData.yAxisName,
-                min: yMin, // 强制起点
-                max: yMax, // 强制终点
-                scale: true, // 关键
-                splitLine: { lineStyle: { type: 'dashed', color: '#f5f5f5' } } 
-            },
-            series: [{ type: 'scatter', data: seriesData, animationDuration: 400 }]
-        }, true);
+            reader.readAsDataURL(file);
+        }
     }
 
-    // --- 后台功能 ---
-    function saveToLibrary() {
-        const name = document.getElementById('projName').value;
-        if(!name) { alert("请先输入项目名称"); return; }
-        let lib = JSON.parse(localStorage.getItem('qg_v10_lib') || '{}');
-        lib[name] = currentData;
-        localStorage.setItem('qg_v10_lib', JSON.stringify(lib));
-        refreshLibraryList(); document.getElementById('statusBar').innerText = "✅ 项目已深度保存";
-    }
-    function loadFromLibrary(name) {
-        if(!name) return;
-        let lib = JSON.parse(localStorage.getItem('qg_v10_lib') || '{}');
-        if(lib[name]) { currentData = lib[name]; syncUIToData(); renderChart(); }
-    }
-    function deleteFromLibrary() {
-        const name = document.getElementById('projList').value;
-        if(!name || !confirm("确定删除？")) return;
-        let lib = JSON.parse(localStorage.getItem('qg_v10_lib') || '{}');
-        delete lib[name]; localStorage.setItem('qg_v10_lib', JSON.stringify(lib));
-        refreshLibraryList();
-    }
-    function refreshLibraryList() {
-        const list = document.getElementById('projList');
-        const lib = JSON.parse(localStorage.getItem('qg_v10_lib') || '{}');
-        list.innerHTML = '<option value="">-- 读取历史 --</option>';
-        for(let k in lib) { const o = document.createElement('option'); o.value=k; o.innerText=k; list.appendChild(o); }
-    }
-    function initTable() {
-        const tbody = document.getElementById('tableBody'); tbody.innerHTML = '';
-        currentData.products.forEach((p, index) => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td><input type="text" value="${p.name}" oninput="updateProduct(${index},'name',this.value)"></td>
-                <td><input type="number" value="${p.price}" oninput="updateProduct(${index},'price',this.value)"></td>
-                <td><select onchange="updateProduct(${index},'pos',this.value)">${POS_OPTIONS.map(opt => `<option value="${opt}" ${p.pos===opt?'selected':''}>${opt}</option>`).join('')}</select></td>
-                <td><div style="display:flex;flex-wrap:wrap;gap:3px;align-items:center"><input type="color" id="p_${index}" style="width:16px;height:16px;border:none;padding:0;cursor:pointer"><button onclick="addColor(${index})" style="font-size:9px">加</button>${p.selectedColors.map((c,ci)=>`<div class="swatch" style="background:${c}" onclick="removeColor(${index},${ci})"></div>`).join('')}</div></td>
-                <td><label style="cursor:pointer;color:var(--primary-color);">${p.img?'✅':'传'}<input type="file" style="display:none" accept="image/*" onchange="handleFile(${index},this)"></label></td>
-                <td><button onclick="removeRow(${index})" style="background:none;border:none;color:red;cursor:pointer">✕</button></td>
+    function renderSKUList() {
+        const list = document.getElementById('sku-list');
+        list.innerHTML = '';
+        skus.forEach((sku, i) => {
+            const item = document.createElement('div');
+            item.className = 'sku-item';
+            item.innerHTML = `
+                <div class="sku-row-main">
+                    <div class="img-preview" style="background-image:url(${sku.img || ''})" onclick="document.getElementById('file-${i}').click()">
+                        ${sku.img ? '' : '图'}
+                    </div>
+                    <input type="text" value="${sku.name}" oninput="skus[${i}].name=this.value;updateChart()" placeholder="产品名称">
+                    <input type="number" value="${sku.price}" oninput="skus[${i}].price=parseFloat(this.value);updateChart()">
+                    <select onchange="skus[${i}].pos=this.value;updateChart()">
+                        ${positions.map(p => `<option value="${p}" ${sku.pos === p ? 'selected' : ''}>${p}</option>`).join('')}
+                    </select>
+                    <span class="btn-del" onclick="skus.splice(${i},1);renderSKUList();updateChart()">×</span>
+                </div>
+                <div class="color-container">
+                    ${sku.colors.map((c, ci) => `
+                        <div class="color-dot-wrapper">
+                            <input type="color" value="${c}" oninput="skus[${i}].colors[${ci}]=this.value;updateChart()">
+                            <span style="cursor:pointer; margin-left:3px; font-size:10px; color:#999" onclick="skus[${i}].colors.splice(${ci},1);renderSKUList();updateChart()">✕</span>
+                        </div>
+                    `).join('')}
+                    <button class="btn" style="padding:2px 6px; font-size:10px; border:1px solid #ddd;" onclick="skus[${i}].colors.push('#ccc');renderSKUList();updateChart()">+配色</button>
+                </div>
+                <input type="file" id="file-${i}" style="display:none" accept="image/*" onchange="handleImage(${i}, event)">
             `;
-            tbody.appendChild(row);
+            list.appendChild(item);
         });
     }
-    function updateProduct(i, f, v) { currentData.products[i][f] = f==='price'?Number(v):v; autoUpdate(); }
-    function addColor(i) { currentData.products[i].selectedColors.push(document.getElementById(`p_${i}`).value); initTable(); autoUpdate(); }
-    function removeColor(pi, ci) { currentData.products[pi].selectedColors.splice(ci,1); initTable(); autoUpdate(); }
-    function addRow() { currentData.products.push({name:'新SKU', price:350, pos:'训练(10K)', img:'', selectedColors:[]}); initTable(); autoUpdate(); }
-    function removeRow(i) { currentData.products.splice(i,1); initTable(); autoUpdate(); }
-    function handleFile(i, input) { const file = input.files[0]; if(file) { const reader = new FileReader(); reader.onload=(e)=>{currentData.products[i].img=e.target.result; initTable(); autoUpdate();}; reader.readAsDataURL(file); } }
-    function exportChartImage() { const url = myChart.getDataURL({type:'png', pixelRatio:2, backgroundColor:'#fff'}); const a = document.createElement('a'); a.href=url; a.download=`企划图_${new Date().getTime()}.png`; a.click(); }
+
+    // --- 核心：稳定性加强的看板渲染函数 ---
+    function updateChart() {
+        if(skus.length === 0) { myChart.clear(); return; }
+        const prices = skus.map(s => s.price);
+        const minP = Math.max(0, Math.floor(Math.min(...prices) / 100) * 100 - 100);
+        const maxP = Math.ceil(Math.max(...prices) / 100) * 100 + 100;
+
+        const collisionMap = {};
+        const seriesData = skus.map((sku, idx) => {
+            const pIdx = positions.indexOf(sku.pos);
+            const key = `${sku.pos}-${sku.price}`;
+            const colWidth = (myChart.getWidth() - 100) / positions.length;
+            
+            collisionMap[key] = (collisionMap[key] || 0) + 1;
+            const count = collisionMap[key] - 1;
+            const dir = count % 2 === 0 ? 1 : -1;
+            let xOff = dir * (Math.ceil(count / 2) * 70); // 避让位移增加到 70px
+            
+            const limit = colWidth * 0.45; 
+            if (Math.abs(xOff) > limit) xOff = xOff > 0 ? limit : -limit;
+
+            return { value: [pIdx, sku.price], sku: sku, xOff: xOff, idx: idx };
+        });
+
+        // 终极修复：构建唯一的样式映射表
+        const dynamicRich = {
+            nm: { fontSize: 11, fontWeight: 'bold', color: '#333', lineHeight: 18, align: 'center' },
+            pr: { fontSize: 10, color: '#888', align: 'center', lineHeight: 14 }
+        };
+
+        seriesData.forEach((d) => {
+            // 给每一张图强制生成唯一的样式 ID
+            dynamicRich[`img_${d.idx}`] = {
+                height: 60, width: 60,
+                backgroundColor: { image: d.sku.img || placeholderImg }
+            };
+            // 给每一个色块生成唯一 ID
+            d.sku.colors.forEach((c, ci) => {
+                dynamicRich[`c_${d.idx}_${ci}`] = { 
+                    width: 8, height: 8, borderRadius: 4, 
+                    backgroundColor: c, borderColor: '#fff', borderWidth: 1 
+                };
+            });
+        });
+
+        const option = {
+            title: { text: document.getElementById('chart-title').value, left: 'center', top: 20 },
+            grid: { left: 80, right: 40, bottom: 60, top: 80 },
+            xAxis: { type: 'category', data: positions, splitLine: { show: true, lineStyle: { type: 'dashed', color: '#eee' } } },
+            yAxis: { type: 'value', min: minP, max: maxP, name: '价格 (元)', splitLine: { lineStyle: { type: 'dashed' } } },
+            series: [{
+                type: 'scatter',
+                data: seriesData.map(d => ({
+                    value: d.value,
+                    label: {
+                        show: true,
+                        offset: [d.xOff, 0],
+                        backgroundColor: '#fff', 
+                        borderColor: '#ddd', 
+                        borderWidth: 1, 
+                        borderRadius: 6, 
+                        padding: [10, 12, 8, 12],
+                        shadowBlur: 10, 
+                        shadowColor: 'rgba(0,0,0,0.08)',
+                        // 修正：采用最简单的垂直流布局，不进行复杂的盒模型嵌套
+                        formatter: () => {
+                            let dotTags = d.sku.colors.map((c, ci) => `{c_${d.idx}_${ci}|}`).join(' ');
+                            return `{img_${d.idx}|}\n{nm|${d.sku.name}}\n{pr|¥${d.sku.price}}\n${dotTags}`;
+                        },
+                        rich: dynamicRich
+                    }
+                })),
+                symbolSize: 1
+            }]
+        };
+
+        myChart.setOption(option, true); // true 表示完全重绘，不保留旧状态
+    }
+
+    // --- 档案存储与读取 ---
+    function saveProject() {
+        const name = document.getElementById('project-name').value;
+        if (!name) return alert("项目名不能为空");
+        const data = { title: document.getElementById('chart-title').value, w: wrapper.style.width, h: wrapper.style.height, skus };
+        try {
+            localStorage.setItem('27SS_'+name, JSON.stringify(data));
+            updateProjectList(); alert("保存成功！");
+        } catch(e) { alert("空间不足！请尝试使用较小的图片（500KB以下）。"); }
+    }
+    function updateProjectList() {
+        const sel = document.getElementById('project-select');
+        sel.innerHTML = '<option value="">-- 读取历史 --</option>';
+        Object.keys(localStorage).filter(k => k.startsWith('27SS_')).forEach(k => {
+            sel.innerHTML += `<option value="${k}">${k.replace('27SS_','')}</option>`;
+        });
+    }
+    function loadProject() {
+        const k = document.getElementById('project-select').value;
+        if (!k) return;
+        const d = JSON.parse(localStorage.getItem(k));
+        document.getElementById('project-name').value = k.replace('27SS_','');
+        document.getElementById('chart-title').value = d.title;
+        document.getElementById('canvas-width').value = parseInt(d.w);
+        document.getElementById('canvas-height').value = parseInt(d.h);
+        skus = d.skus; resizeCanvas(); renderSKUList();
+    }
+    function deleteProject() {
+        const k = document.getElementById('project-select').value;
+        if (k && confirm("确定永久删除该档案？")) { localStorage.removeItem(k); updateProjectList(); }
+    }
+    function exportImage() {
+        const url = myChart.getDataURL({ type: 'png', pixelRatio: 3, backgroundColor: '#fff' });
+        const a = document.createElement('a'); a.href = url; a.download = '27SS看板导出.png'; a.click();
+    }
+
+    // 初始化渲染
+    renderSKUList(); updateChart(); updateProjectList();
 </script>
 </body>
 </html>
